@@ -15,5 +15,5 @@ None — no build step
 ## Branch naming
 `claude/epic-{number}-{short-title}`
 
-## Axon3 skills
-All three skills (`/ax-prep`, `/ax-build`, `/ax-init`) are available in this session via the repo's own `.claude/skills/` directory.
+## Axon3 commands
+All three commands (`/ax-prep`, `/ax-build`, `/ax-init`) are available in this session via the repo's own `.claude/commands/` directory.
