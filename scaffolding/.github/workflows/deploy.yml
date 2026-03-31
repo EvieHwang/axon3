@@ -1,0 +1,41 @@
+# Deploy workflow — triggered on PR merge to main
+# After inducting a project with /ax-init, replace the placeholder deploy
+# command below with your actual deploy command.
+
+name: Deploy
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # Only run when the PR was actually merged (not just closed)
+    if: github.event.pull_request.merged == true
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── AWS credentials ─────────────────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ── Deploy ───────────────────────────────────────────────────────────────
+      - name: Deploy
+        run: |
+          # TODO: replace with your deploy command
+          # Examples:
+          #   aws s3 sync ./dist s3://my-bucket --delete
+          #   aws lightsail push-container-image ...
+          #   ./scripts/deploy.sh
+          echo "Deploy step not yet configured"
