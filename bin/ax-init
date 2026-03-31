@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# ax-init — induct a project into Axon3 governance
+#
+# Usage:
+#   bash ~/projects/axon3/bin/ax-init [target-dir]
+#
+# If target-dir is omitted, uses the current directory.
+# Run from anywhere; the script resolves its own location.
+
+set -euo pipefail
+
+# ── Resolve paths ─────────────────────────────────────────────────────────────
+
+AXON3_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TARGET_DIR="${1:-$(pwd)}"
+TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+
+echo "Axon3 source : $AXON3_DIR"
+echo "Target project: $TARGET_DIR"
+echo ""
+
+# ── Confirm ───────────────────────────────────────────────────────────────────
+
+read -r -p "Induct '$TARGET_DIR' into Axon3 governance? [y/N] " confirm
+[[ "$confirm" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 0; }
+echo ""
+
+cd "$TARGET_DIR"
+
+# ── Step 1: Verify git repo ───────────────────────────────────────────────────
+
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo "ERROR: '$TARGET_DIR' is not a git repository."
+  echo "Run 'git init' or clone a repo first."
+  exit 1
+fi
+
+# ── Step 2: Add Axon3 as a submodule ─────────────────────────────────────────
+
+SUBMODULE_PATH=".claude/skills/axon3"
+
+if [ -d "$SUBMODULE_PATH/.git" ] || grep -q "$SUBMODULE_PATH" .gitmodules 2>/dev/null; then
+  echo "⚠  Submodule already exists at $SUBMODULE_PATH — skipping."
+else
+  echo "→  Adding Axon3 submodule at $SUBMODULE_PATH..."
+  git submodule add https://github.com/EvieHwang/axon3 "$SUBMODULE_PATH"
+  echo "✓  Submodule added."
+fi
+echo ""
+
+# ── Step 3: Create .claude/commands/ with symlinks ───────────────────────────
+
+COMMANDS_DIR=".claude/commands"
+mkdir -p "$COMMANDS_DIR"
+
+for cmd in ax-prep ax-build; do
+  LINK="$COMMANDS_DIR/${cmd}.md"
+  TARGET="../../skills/axon3/.claude/commands/${cmd}.md"
+  if [ -e "$LINK" ] || [ -L "$LINK" ]; then
+    echo "⚠  $LINK already exists — skipping."
+  else
+    ln -s "$TARGET" "$LINK"
+    echo "✓  Symlinked $LINK → $TARGET"
+  fi
+done
+echo ""
+
+# ── Step 4: Copy scaffolding files ───────────────────────────────────────────
+
+SCAFFOLDING_DIR="$AXON3_DIR/scaffolding"
+SKIPPED=()
+
+copy_scaffolding_file() {
+  local src="$1"
+  local rel="${src#$SCAFFOLDING_DIR/}"
+  local dest="$TARGET_DIR/$rel"
+  if [ -e "$dest" ]; then
+    SKIPPED+=("$rel")
+  else
+    mkdir -p "$(dirname "$dest")"
+    cp "$src" "$dest"
+    echo "✓  Copied $rel"
+  fi
+}
+
+echo "→  Copying scaffolding files..."
+while IFS= read -r -d '' file; do
+  copy_scaffolding_file "$file"
+done < <(find "$SCAFFOLDING_DIR" -type f -print0)
+
+if [ ${#SKIPPED[@]} -gt 0 ]; then
+  echo ""
+  echo "⚠  Skipped (already exist):"
+  for f in "${SKIPPED[@]}"; do
+    echo "   $f"
+  done
+fi
+echo ""
+
+# ── Step 5: Create SPEC.md ────────────────────────────────────────────────────
+
+if [ -f "SPEC.md" ]; then
+  echo "⚠  SPEC.md already exists — skipping."
+else
+  cp "$AXON3_DIR/.claude/skills/ax-init/templates/spec-template.md" SPEC.md
+  echo "✓  Created SPEC.md from template."
+fi
+
+# ── Step 6: Create CLAUDE.md ──────────────────────────────────────────────────
+
+if [ -f "CLAUDE.md" ]; then
+  echo "⚠  CLAUDE.md already exists — skipping."
+else
+  cp "$AXON3_DIR/.claude/skills/ax-init/templates/claude-template.md" CLAUDE.md
+  echo "✓  Created CLAUDE.md from template."
+fi
+echo ""
+
+# ── Step 7: Update .gitignore ─────────────────────────────────────────────────
+
+if [ -f ".gitignore" ] && grep -q "^\.axon/$" .gitignore; then
+  echo "⚠  .gitignore already contains .axon/ — skipping."
+else
+  echo ".axon/" >> .gitignore
+  echo "✓  Added .axon/ to .gitignore."
+fi
+echo ""
+
+# ── Step 8: Initial commit ────────────────────────────────────────────────────
+
+echo "→  Staging and committing..."
+git add .
+git commit -m "chore: induct project into axon3 governance"
+echo "✓  Committed."
+echo ""
+
+# ── Step 9: Post-induction checklist ─────────────────────────────────────────
+
+cat <<'EOF'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Induction complete. Next steps:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Fill in SPEC.md
+   - Constraints zone: stack choices, non-negotiable rules
+   - Operator zone: vision, features, acceptance criteria
+
+2. Fill in CLAUDE.md
+   - Stack, key commands, constraints
+
+3. Add GitHub Actions secrets in your repo settings:
+   - AWS_ACCESS_KEY_ID
+   - AWS_SECRET_ACCESS_KEY
+   - AWS_REGION
+   Then fill in the deploy command in .github/workflows/deploy.yml
+
+4. Create Kanban labels on GitHub:
+   - backlog  (#CCCCCC)
+   - build-lane (#0075CA)
+   - in-progress (#FBCA04)
+   - done (#0E8A16)
+
+5. Start a Claude Code session:
+   cd <project>
+   claude
+
+   Then run /ax-prep to create your first epics.
+
+6. To update Axon3 skills later:
+   git submodule update --remote .claude/skills/axon3
+   git commit -m "chore: update axon3 skills"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EOF
