@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# ax-update — update Axon3 commands in an inducted project
+#
+# Usage (from the inducted project root):
+#   bash .claude/skills/axon3/bin/ax-update
+#
+# Updates the submodule to the latest Axon3, then refreshes
+# the command files in .claude/commands/.
+
+set -euo pipefail
+
+PROJECT_DIR="$(pwd)"
+SUBMODULE_PATH=".claude/skills/axon3"
+
+if [ ! -d "$SUBMODULE_PATH" ]; then
+  echo "ERROR: No Axon3 submodule found at $SUBMODULE_PATH"
+  echo "Run ax-init first."
+  exit 1
+fi
+
+echo "→  Updating Axon3 submodule..."
+git submodule update --remote "$SUBMODULE_PATH"
+echo "✓  Submodule updated."
+echo ""
+
+echo "→  Refreshing command files..."
+for cmd in ax-prep ax-build; do
+  SRC="$SUBMODULE_PATH/.claude/commands/${cmd}.md"
+  DEST=".claude/commands/${cmd}.md"
+  cp "$SRC" "$DEST"
+  echo "✓  Updated $cmd"
+done
+echo ""
+
+echo "→  Committing..."
+git add .
+git commit -m "chore: update axon3 skills"
+echo "✓  Done."
