@@ -48,19 +48,23 @@ else
 fi
 echo ""
 
-# ── Step 3: Create .claude/commands/ with symlinks ───────────────────────────
+# ── Step 3: Copy command files into .claude/commands/ ────────────────────────
+# Claude Code discovers slash commands from the project's own .claude/commands/
+# directory only — symlinks are not followed. Commands are copied from the
+# submodule so they work immediately. To update commands after an Axon3
+# upgrade, run: bash .claude/skills/axon3/bin/ax-update
 
 COMMANDS_DIR=".claude/commands"
 mkdir -p "$COMMANDS_DIR"
 
 for cmd in ax-prep ax-build; do
-  LINK="$COMMANDS_DIR/${cmd}.md"
-  TARGET="../../skills/axon3/.claude/commands/${cmd}.md"
-  if [ -e "$LINK" ] || [ -L "$LINK" ]; then
-    echo "⚠  $LINK already exists — skipping."
+  DEST="$COMMANDS_DIR/${cmd}.md"
+  SRC="$AXON3_DIR/.claude/commands/${cmd}.md"
+  if [ -f "$DEST" ]; then
+    echo "⚠  $DEST already exists — skipping."
   else
-    ln -s "$TARGET" "$LINK"
-    echo "✓  Symlinked $LINK → $TARGET"
+    cp "$SRC" "$DEST"
+    echo "✓  Copied $cmd command."
   fi
 done
 echo ""
@@ -152,7 +156,6 @@ cat <<'EOF'
    - AWS_ACCESS_KEY_ID
    - AWS_SECRET_ACCESS_KEY
    - AWS_REGION
-   Then fill in the deploy command in .github/workflows/deploy.yml
 
 4. Create Kanban labels on GitHub:
    - backlog  (#CCCCCC)
@@ -166,9 +169,8 @@ cat <<'EOF'
 
    Then run /ax-prep to create your first epics.
 
-6. To update Axon3 skills later:
-   git submodule update --remote .claude/skills/axon3
-   git commit -m "chore: update axon3 skills"
+6. To update Axon3 commands and skills later:
+   bash .claude/skills/axon3/bin/ax-update
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EOF
